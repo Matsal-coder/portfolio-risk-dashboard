@@ -1,0 +1,3 @@
+asset_id,instrument_type,book,quantity,price
+PETR4,EQUITY,EQUITIES,500,40.00
+LTN_2027,LTN,RATES,10,900.00
