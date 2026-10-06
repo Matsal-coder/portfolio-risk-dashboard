@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pandas as pd
 import streamlit as st
 
@@ -7,12 +5,8 @@ from portfolio_risk.application.bootstrap import (
     ProjectState,
     load_project_state,
 )
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-INSTRUMENT_PATH = PROJECT_ROOT / "data" / "instruments" / "instruments.csv"
-PORTFOLIO_PATH = PROJECT_ROOT / "data" / "portfolio" / "portfolio.csv"
-MARKET_PATH = PROJECT_ROOT / "data" / "market" / "market_snapshot.csv"
+from portfolio_risk.config.logging import configure_logging
+from portfolio_risk.config.settings import settings
 
 
 def build_positions_dataframe(state: ProjectState) -> pd.DataFrame:
@@ -56,14 +50,16 @@ def render_dashboard() -> None:
         layout="wide",
     )
 
+    configure_logging()
+
     st.title("Portfolio Risk Dashboard")
     st.caption("Block 0 — Portfolio / Market Data")
 
     try:
         state = load_project_state(
-            instrument_path=INSTRUMENT_PATH,
-            portfolio_path=PORTFOLIO_PATH,
-            market_path=MARKET_PATH,
+            instrument_path=settings.instrument_path,
+            portfolio_path=settings.portfolio_path,
+            market_path=settings.market_path,
         )
     except Exception as exc:
         st.error(f"Could not load project state: {exc}")
