@@ -74,6 +74,51 @@ class YieldCurve(BaseModel):
             convention=self.compounding,
         )
 
+    def parallel_shift_bps(self, basis_points: float) -> "YieldCurve":
+        """Return a new curve with every zero-rate node shifted equally."""
+        rate_shift = basis_points / 10_000.0
+
+        shifted_nodes = tuple(
+            CurveNode(
+                maturity_date=node.maturity_date,
+                zero_rate=node.zero_rate + rate_shift,
+            )
+            for node in self.nodes
+        )
+
+        return self.model_copy(
+            update={"nodes": shifted_nodes},
+        )
+
+    def key_rate_shift_bps(
+        self,
+        maturity_date: date,
+        basis_points: float,
+    ) -> "YieldCurve":
+        """Return a new curve with one zero-rate node shifted."""
+        if not any(node.maturity_date == maturity_date for node in self.nodes):
+            raise ValueError(
+                "Key-rate shift maturity must match an existing curve node."
+            )
+
+        rate_shift = basis_points / 10_000.0
+
+        shifted_nodes = tuple(
+            CurveNode(
+                maturity_date=node.maturity_date,
+                zero_rate=(
+                    node.zero_rate + rate_shift
+                    if node.maturity_date == maturity_date
+                    else node.zero_rate
+                ),
+            )
+            for node in self.nodes
+        )
+
+        return self.model_copy(
+            update={"nodes": shifted_nodes},
+        )
+
     @model_validator(mode="after")
     def validate_curve(self) -> "YieldCurve":
         """Validate structural and convention requirements."""

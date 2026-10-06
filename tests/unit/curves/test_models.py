@@ -501,3 +501,165 @@ def test_forward_rate_preserves_no_extrapolation_policy(
             date(2028, 1, 1),
             date(2031, 1, 1),
         )
+
+
+def test_parallel_shift_moves_all_nodes_by_basis_points(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.parallel_shift_bps(100)
+
+    assert shifted.nodes[0].zero_rate == pytest.approx(0.11)
+    assert shifted.nodes[1].zero_rate == pytest.approx(0.13)
+    assert shifted.nodes[2].zero_rate == pytest.approx(0.14)
+
+
+def test_parallel_shift_supports_negative_basis_points(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.parallel_shift_bps(-50)
+
+    assert shifted.nodes[0].zero_rate == pytest.approx(0.095)
+    assert shifted.nodes[1].zero_rate == pytest.approx(0.115)
+    assert shifted.nodes[2].zero_rate == pytest.approx(0.125)
+
+
+def test_parallel_shift_does_not_mutate_original_curve(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.parallel_shift_bps(100)
+
+    assert simple_curve.nodes[0].zero_rate == pytest.approx(0.10)
+    assert shifted is not simple_curve
+
+
+def test_parallel_shift_preserves_curve_conventions(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.parallel_shift_bps(100)
+
+    assert shifted.as_of == simple_curve.as_of
+    assert shifted.day_count == simple_curve.day_count
+    assert shifted.compounding == simple_curve.compounding
+    assert shifted.calendar == simple_curve.calendar
+    assert shifted.interpolation_method == simple_curve.interpolation_method
+
+
+def test_zero_basis_point_shift_returns_equivalent_new_curve(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.parallel_shift_bps(0)
+
+    assert shifted == simple_curve
+    assert shifted is not simple_curve
+
+
+def test_key_rate_shift_moves_only_selected_node(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.key_rate_shift_bps(
+        maturity_date=date(2028, 1, 1),
+        basis_points=100,
+    )
+
+    assert shifted.nodes[0].zero_rate == pytest.approx(0.10)
+    assert shifted.nodes[1].zero_rate == pytest.approx(0.13)
+    assert shifted.nodes[2].zero_rate == pytest.approx(0.13)
+
+
+def test_key_rate_shift_supports_negative_basis_points(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.key_rate_shift_bps(
+        maturity_date=date(2028, 1, 1),
+        basis_points=-25,
+    )
+
+    assert shifted.nodes[1].zero_rate == pytest.approx(0.1175)
+
+
+def test_key_rate_shift_does_not_mutate_original_curve(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.key_rate_shift_bps(
+        maturity_date=date(2028, 1, 1),
+        basis_points=100,
+    )
+
+    assert simple_curve.nodes[1].zero_rate == pytest.approx(0.12)
+    assert shifted is not simple_curve
+
+
+def test_key_rate_shift_rejects_non_node_maturity(
+    simple_curve: YieldCurve,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="must match an existing curve node",
+    ):
+        simple_curve.key_rate_shift_bps(
+            maturity_date=date(2029, 1, 1),
+            basis_points=100,
+        )
+
+
+def test_key_rate_shift_preserves_unaffected_nodes(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.key_rate_shift_bps(
+        maturity_date=date(2028, 1, 1),
+        basis_points=100,
+    )
+
+    assert shifted.nodes[0] == simple_curve.nodes[0]
+    assert shifted.nodes[2] == simple_curve.nodes[2]
+
+
+def test_key_rate_shift_changes_interpolated_region(
+    simple_curve: YieldCurve,
+) -> None:
+    target_date = date(2027, 7, 2)
+
+    base_discount_factor = simple_curve.discount_factor(target_date)
+
+    shifted = simple_curve.key_rate_shift_bps(
+        maturity_date=date(2028, 1, 1),
+        basis_points=100,
+    )
+
+    shifted_discount_factor = shifted.discount_factor(target_date)
+
+    assert shifted_discount_factor < base_discount_factor
+
+
+def test_parallel_shift_one_basis_point_equals_one_ten_thousandth(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.parallel_shift_bps(1)
+
+    assert shifted.nodes[0].zero_rate == pytest.approx(0.1001)
+    assert shifted.nodes[1].zero_rate == pytest.approx(0.1201)
+    assert shifted.nodes[2].zero_rate == pytest.approx(0.1301)
+
+
+def test_key_rate_shift_one_basis_point_equals_one_ten_thousandth(
+    simple_curve: YieldCurve,
+) -> None:
+    shifted = simple_curve.key_rate_shift_bps(
+        maturity_date=date(2028, 1, 1),
+        basis_points=1,
+    )
+
+    assert shifted.nodes[0].zero_rate == pytest.approx(0.10)
+    assert shifted.nodes[1].zero_rate == pytest.approx(0.1201)
+    assert shifted.nodes[2].zero_rate == pytest.approx(0.13)
+
+
+def test_parallel_shift_changes_discount_factor_in_expected_direction(
+    simple_curve: YieldCurve,
+) -> None:
+    target_date = date(2028, 1, 1)
+
+    base_df = simple_curve.discount_factor(target_date)
+    shifted_df = simple_curve.parallel_shift_bps(100).discount_factor(target_date)
+
+    assert shifted_df < base_df
