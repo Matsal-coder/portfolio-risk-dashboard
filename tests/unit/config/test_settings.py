@@ -17,3 +17,4 @@ def test_default_paths_are_derived_from_project_root(
     assert settings.market_path == (
         tmp_path / "data" / "market" / "market_snapshot.csv"
     )
+    assert settings.curve_path == (tmp_path / "data" / "market" / "curve_snapshot.csv")

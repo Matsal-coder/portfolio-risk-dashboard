@@ -30,5 +30,10 @@ class Settings(BaseSettings):
     def market_path(self) -> Path:
         return self.project_root / "data" / "market" / "market_snapshot.csv"
 
+    @computed_field
+    @property
+    def curve_path(self) -> Path:
+        return self.project_root / "data" / "market" / "curve_snapshot.csv"
+
 
 settings = Settings()
